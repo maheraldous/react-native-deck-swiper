@@ -40,7 +40,7 @@ class Swiper extends Component {
 
     this.state = {
       ...calculateCardIndexes(props.cardIndex, props.cards),
-      pan: new Animated.ValueXY(),
+      pan: new Animated.ValueXY(0),
 
       previousCardX: new Animated.Value(props.previousCardDefaultPositionX),
       previousCardY: new Animated.Value(props.previousCardDefaultPositionY),
@@ -61,7 +61,31 @@ class Swiper extends Component {
     this.state.pan.y.addListener(value => (this._animatedValueY = value.value))
 
     this.initializeCardStyle()
-    this.initializePanResponder()
+    this._panResponder = PanResponder.create({
+      // onStartShouldSetPanResponder: (event, gestureState) => true,
+      // onMoveShouldSetPanResponder: (event, gestureState) => false,
+
+      onMoveShouldSetPanResponderCapture: (e, gestureState) => {
+        if (Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3) {
+          if (this.props.onDragStart) this.props.onDragStart();
+          return true;
+        }
+        return false;
+      },
+      onPanResponderGrant: this.onPanResponderGrant,
+      onPanResponderMove: Animated.event(
+        [
+          null,
+          {
+            dx: this.state.pan.x,
+            dy: this.props.dragY ? this.state.pan.y : new Animated.Value(0),
+          },
+        ],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: this.onPanResponderRelease,
+      onPanResponderTerminate: this.onPanResponderRelease
+    })
   }
 
   shouldComponentUpdate = (nextProps, nextState) => {
@@ -117,27 +141,6 @@ class Swiper extends Component {
     this.dimensionsChangeSubscription = Dimensions.addEventListener('change', this.onDimensionsChange)
   }
 
-  initializePanResponder = () => {
-    this._panResponder = PanResponder.create({
-      onStartShouldSetPanResponder: (event, gestureState) => true,
-      onMoveShouldSetPanResponder: (event, gestureState) => false,
-
-      onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
-        const isVerticalSwipe = Math.sqrt(
-          Math.pow(gestureState.dx, 2) < Math.pow(gestureState.dy, 2)
-        )
-        if (!this.props.verticalSwipe && isVerticalSwipe) {
-          return false
-        }
-        return Math.sqrt(Math.pow(gestureState.dx, 2) + Math.pow(gestureState.dy, 2)) > 10
-      },
-      onPanResponderGrant: this.onPanResponderGrant,
-      onPanResponderMove: this.onPanResponderMove,
-      onPanResponderRelease: this.onPanResponderRelease,
-      onPanResponderTerminate: this.onPanResponderRelease
-    })
-  }
-
   createAnimatedEvent = () => {
     const { horizontalSwipe, verticalSwipe } = this.props
     const { x, y } = this.state.pan
@@ -150,66 +153,14 @@ class Swiper extends Component {
     this.forceUpdate()
   }
 
-  onPanResponderMove = (event, gestureState) => {
-    this.props.onSwiping(this._animatedValueX, this._animatedValueY)
 
-    let { overlayOpacityHorizontalThreshold, overlayOpacityVerticalThreshold } = this.props
-    if (!overlayOpacityHorizontalThreshold) {
-      overlayOpacityHorizontalThreshold = this.props.horizontalThreshold
-    }
-    if (!overlayOpacityVerticalThreshold) {
-      overlayOpacityVerticalThreshold = this.props.verticalThreshold
-    }
-
-    let isSwipingLeft,
-      isSwipingRight,
-      isSwipingTop,
-      isSwipingBottom
-
-    if (Math.abs(this._animatedValueX) > Math.abs(this._animatedValueY) && Math.abs(this._animatedValueX) > overlayOpacityHorizontalThreshold) {
-      if (this._animatedValueX > 0) isSwipingRight = true
-      else isSwipingLeft = true
-    } else if (Math.abs(this._animatedValueY) > Math.abs(this._animatedValueX) && Math.abs(this._animatedValueY) > overlayOpacityVerticalThreshold) {
-      if (this._animatedValueY > 0) isSwipingBottom = true
-      else isSwipingTop = true
-    }
-
-    if (isSwipingRight) {
-      this.setState({ labelType: LABEL_TYPES.RIGHT })
-    } else if (isSwipingLeft) {
-      this.setState({ labelType: LABEL_TYPES.LEFT })
-    } else if (isSwipingTop) {
-      this.setState({ labelType: LABEL_TYPES.TOP })
-    } else if (isSwipingBottom) {
-      this.setState({ labelType: LABEL_TYPES.BOTTOM })
-    } else {
-      this.setState({ labelType: LABEL_TYPES.NONE })
-    }
-
-    const { onTapCardDeadZone } = this.props
-    if (
-      this._animatedValueX < -onTapCardDeadZone ||
-      this._animatedValueX > onTapCardDeadZone ||
-      this._animatedValueY < -onTapCardDeadZone ||
-      this._animatedValueY > onTapCardDeadZone
-    ) {
-      this.setState({
-        slideGesture: true
-      })
-    }
-
-    return Animated.event([null, this.createAnimatedEvent()], { useNativeDriver: false })(
-      event,
-      gestureState
-    )
-  }
 
   onPanResponderGrant = (event, gestureState) => {
     this.props.dragStart && this.props.dragStart()
     if (!this.state.panResponderLocked) {
       this.state.pan.setOffset({
-        x: this._animatedValueX,
-        y: this._animatedValueY
+        x: 0,
+        y: 0
       })
     }
 
@@ -931,7 +882,8 @@ Swiper.propTypes = {
   verticalSwipe: PropTypes.bool,
   verticalThreshold: PropTypes.number,
   zoomAnimationDuration: PropTypes.number,
-  zoomFriction: PropTypes.number
+  zoomFriction: PropTypes.number,
+  dragY: PropTypes.bool
 }
 
 Swiper.defaultProps = {
@@ -1025,7 +977,8 @@ Swiper.defaultProps = {
   verticalSwipe: true,
   verticalThreshold: height / 5,
   zoomAnimationDuration: 100,
-  zoomFriction: 7
+  zoomFriction: 7,
+  dragY: true
 }
 
 export default Swiper
