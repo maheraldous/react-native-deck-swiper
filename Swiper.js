@@ -73,13 +73,12 @@ class Swiper extends Component {
         return false;
       },
       onPanResponderGrant: this.onPanResponderGrant,
-      onPanResponderMove: Animated.event(
-        [
-          null,
-          this.createAnimatedEvent()
-        ],
-        { useNativeDriver: false }
-      ),
+      onPanResponderMove: (event, gestureState) => {
+        return Animated.event([null, this.createAnimatedEvent()], { useNativeDriver: false })(
+          event,
+          gestureState
+        )
+      },
       onPanResponderRelease: this.onPanResponderRelease,
       onPanResponderTerminate: this.onPanResponderRelease
     })
