@@ -76,10 +76,7 @@ class Swiper extends Component {
       onPanResponderMove: Animated.event(
         [
           null,
-          {
-            dx: this.state.pan.x,
-            dy: this.props.dragY ? this.state.pan.y : new Animated.Value(0),
-          },
+          this.createAnimatedEvent()
         ],
         { useNativeDriver: false }
       ),
