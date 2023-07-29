@@ -1,5 +1,5 @@
 import React, { Component } from 'react'
-import { PanResponder, Text, View, Dimensions, Animated, InteractionManager } from 'react-native'
+import { PanResponder, Text, View, StyleSheet, Dimensions, Animated, InteractionManager } from 'react-native'
 import PropTypes from 'prop-types'
 import isEqual from 'lodash/isEqual'
 
@@ -74,6 +74,18 @@ class Swiper extends Component {
       },
       onPanResponderGrant: this.onPanResponderGrant,
       onPanResponderMove: (event, gestureState) => {
+        // if (gestureState.dx > 120) {
+        //   this.setState({ labelType: LABEL_TYPES.RIGHT })
+        // } else if (gestureState.dx < -120) {
+        //   this.setState({ labelType: LABEL_TYPES.LEFT })
+        // } else if (gestureState.dy > 120) {
+        //   this.setState({ labelType: LABEL_TYPES.TOP })
+        // } else if (gestureState.dy < -120) {
+        //   this.setState({ labelType: LABEL_TYPES.BOTTOM })
+        // } else {
+        //   this.setState({ labelType: LABEL_TYPES.NONE })
+        // }
+
         return Animated.event([null, this.createAnimatedEvent()], { useNativeDriver: false })(
           event,
           gestureState
@@ -705,14 +717,54 @@ class Swiper extends Component {
 
   pushCardToStack = (renderedCards, index, position, key, firstCard) => {
     const { cards } = this.props
+    const isPopUpCard = this.props.popUpCard
+    const likeOpacity = this.state.pan.x.interpolate({
+      inputRange: [-width / 2, 0, width / 2],
+      outputRange: [0, 0, 1],
+      extrapolate: 'clamp',
+    });
+    const dislikeOpacity = this.state.pan.x.interpolate({
+      inputRange: [-width / 2, 0, width / 2],
+      outputRange: [1, 0, 0],
+      extrapolate: 'clamp',
+    });
+    const nextCardOpacity = this.state.pan.x.interpolate({
+      inputRange: [-width / 2, 0, width / 2],
+      outputRange: [1, 0.5, 1],
+      extrapolate: 'clamp',
+    });
+    const nextCardScale = this.state.pan.x.interpolate({
+      inputRange: [-width / 2, 0, width / 2],
+      outputRange: [1, 0.5, 1],
+      extrapolate: 'clamp',
+    });
+    const blurOpacity = this.state.pan.x.interpolate({
+      inputRange: [-width / 2, 0, width / 2],
+      outputRange: [0, 0.5, 0],
+      extrapolate: 'clamp',
+    });
     const stackCardZoomStyle = this.calculateStackCardZoomStyle(position)
-    const stackCard = this.props.renderCard(cards[index], index, firstCard)
+    const stackCard = this.props.renderCard(
+      cards[index],
+      index,
+      firstCard,
+      likeOpacity,
+      dislikeOpacity,
+      blurOpacity,
+    )
     const swipableCardStyle = this.calculateSwipableCardStyle()
     const renderOverlayLabel = this.renderOverlayLabel()
+
     renderedCards.push(
       <Animated.View
         key={key}
-        style={firstCard ? swipableCardStyle : stackCardZoomStyle}
+        style={[
+          firstCard ? swipableCardStyle : stackCardZoomStyle,
+          (isPopUpCard && !firstCard) && {
+            opacity: nextCardOpacity,
+            transform: [{ scale: nextCardScale }],
+          }
+        ]}
         {...this._panResponder.panHandlers}
       >
         {firstCard ? renderOverlayLabel : null}
@@ -859,6 +911,7 @@ Swiper.propTypes = {
   overlayLabelWrapperStyle: PropTypes.object,
   overlayOpacityHorizontalThreshold: PropTypes.number,
   overlayOpacityVerticalThreshold: PropTypes.number,
+  popUpCard: PropTypes.bool,
   pointerEvents: PropTypes.oneOf(['box-none', 'none', 'box-only', 'auto']),
   previousCardDefaultPositionX: PropTypes.number,
   previousCardDefaultPositionY: PropTypes.number,
@@ -956,6 +1009,7 @@ Swiper.defaultProps = {
   },
   overlayOpacityHorizontalThreshold: width / 4,
   overlayOpacityVerticalThreshold: height / 5,
+  popUpCard: false,
   pointerEvents: 'auto',
   previousCardDefaultPositionX: -width,
   previousCardDefaultPositionY: -height,
